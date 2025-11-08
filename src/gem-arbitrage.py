@@ -483,11 +483,23 @@ class CorruptOperation:
   
   
   def table_format(self):
-      all_gems = [f"{gem.chaos_value:.2f}" for gem in self.all_gems]
-      # Remove #3 and #1 because they are duplicates of each other
-      all_gems.pop(3)
-      all_gems.pop(1)
-      return [f"{self.profit:.2f}", str(self.pre_gem), "Vaal Orb", f"{self.pre_gem.chaos_value:.2f}"] + all_gems
+    all_gems = [f"{gem.chaos_value:.2f}" for gem in self.all_gems]
+    # Remove #3 and #1 because they are duplicates of each other
+    all_gems.pop(3)
+    all_gems.pop(1)
+    # Get counts for specific variants
+    base_count = str(self.pre_gem.count) if self.pre_gem else "0"  # 20/20 uncorrupted
+    corrupt_20_20_count = "0"
+    corrupt_21_20_count = "0"
+      
+    # Find counts for corrupted variants
+    for gem in Controller.get_gems(self.pre_gem.name, self.pre_gem.type):
+      if gem.corrupt and gem.level == 20 and gem.quality == 20:
+        corrupt_20_20_count = str(gem.count)
+      elif gem.corrupt and gem.level == 21 and gem.quality == 20:
+        corrupt_21_20_count = str(gem.count)
+      
+    return [f"{self.profit:.2f}", str(self.pre_gem), "Vaal Orb", f"{self.pre_gem.chaos_value:.2f}"] + all_gems + [base_count, corrupt_20_20_count, corrupt_21_20_count]
 
   # Determines the profit for corrupting a given gem
   # Really depends on good data, and poe.ninja data is shaky at best
@@ -766,7 +778,7 @@ def runTradesUi(window, app):
   }
   corrupt_table_data = {
     'gemdata': out['table_corrupts'],
-    'columns': ['Profit', 'Gem Name', 'Method', 'PreCost', 'Brick', 'Vaal', '+Qual', '-Qual', '+Level', '-Level'],
+    'columns': ['Profit', 'Gem Name', 'Method', 'PreCost', 'Brick', 'Vaal', '+Qual', '-Qual', '+Level', '-Level', '20/20 Count', '20/20 Bricked Count', '21/20 Count'],
     'rows': []
   }
   wokegem_table_data = {
