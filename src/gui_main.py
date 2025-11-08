@@ -67,6 +67,12 @@ class Ui_GemArbitrageGUI(object):
         self.wokegemTable.setObjectName("wokegemTable")
         self.wokegemTable.horizontalHeader().setDefaultSectionSize(64)
         self.wokegemTable.verticalHeader().setDefaultSectionSize(36)
+        # Make header resize to contents and avoid eliding so longer headers can wrap/show fully
+        self.wokegemTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        try:
+            self.wokegemTable.horizontalHeader().setTextElideMode(QtCore.Qt.TextElideMode.ElideNone)
+        except Exception:
+            pass
         self.tradeTabs.addTab(self.wokegemTab, "")
         self.corruptTab = QtWidgets.QWidget()
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.MinimumExpanding)
@@ -88,6 +94,12 @@ class Ui_GemArbitrageGUI(object):
         self.corruptTable.setObjectName("corruptTable")
         self.corruptTable.horizontalHeader().setDefaultSectionSize(64)
         self.corruptTable.verticalHeader().setDefaultSectionSize(36)
+        # Make header resize to contents and avoid eliding so longer headers can wrap/show fully
+        self.corruptTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        try:
+            self.corruptTable.horizontalHeader().setTextElideMode(QtCore.Qt.TextElideMode.ElideNone)
+        except Exception:
+            pass
         self.tradeTabs.addTab(self.corruptTab, "")
         self.font2Tab = QtWidgets.QWidget()
         self.font2Tab.setObjectName("font2Tab")
@@ -104,6 +116,12 @@ class Ui_GemArbitrageGUI(object):
         self.font2Table.setObjectName("font2Table")
         self.font2Table.horizontalHeader().setDefaultSectionSize(64)
         self.font2Table.verticalHeader().setDefaultSectionSize(36)
+        # Make header resize to contents and avoid eliding so longer headers can wrap/show fully
+        self.font2Table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        try:
+            self.font2Table.horizontalHeader().setTextElideMode(QtCore.Qt.TextElideMode.ElideNone)
+        except Exception:
+            pass
         self.tradeTabs.addTab(self.font2Tab, "")
         self.font1Tab = QtWidgets.QWidget()
         self.font1Tab.setObjectName("font1Tab")
@@ -120,6 +138,12 @@ class Ui_GemArbitrageGUI(object):
         self.font1Table.setObjectName("font1Table")
         self.font1Table.horizontalHeader().setDefaultSectionSize(64)
         self.font1Table.verticalHeader().setDefaultSectionSize(36)
+        # Make header resize to contents and avoid eliding so longer headers can wrap/show fully
+        self.font1Table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        try:
+            self.font1Table.horizontalHeader().setTextElideMode(QtCore.Qt.TextElideMode.ElideNone)
+        except Exception:
+            pass
         self.tradeTabs.addTab(self.font1Tab, "")
         GemArbitrageGUI.setCentralWidget(self.centralwidget)
         self.statusBar = QtWidgets.QStatusBar(parent=GemArbitrageGUI)
