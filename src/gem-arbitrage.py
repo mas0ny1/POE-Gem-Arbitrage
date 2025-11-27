@@ -53,9 +53,12 @@ class Controller:
   all_font2_operations = []
   all_corrupt_operations = []
   all_watcher_operations = []
+  all_brambleback_operations = []
   results = []
   gems = []
   gems_dict = {}
+  wild_brambleback_price = 0
+  gemcutter_price = 0
 
   # There are some disallowed gems that don't have alternate qualities.
   # If you have other gems to ignore, you can put it in the DISALLOWED_GEMS additional list.
@@ -103,6 +106,7 @@ class Controller:
     secondary_watcher_data_attempt_count  = int(parser.get('market_settings', 'secondary_watcher_data_attempt_count'))
     awakened_miss_price                   = int(parser.get('market_settings', 'awakened_miss_price'))
     bypass_calc                           = is_true(parser.get('general', 'bypass_calc'))
+    print_brambleback                     = is_true(parser.get('general', 'print_brambleback')) if parser.has_option('general', 'print_brambleback') else False
 
   except Exception as e:
     print(f"Error loading settings.ini file. Please check the exception below and the corresponding entry in the settings file.\nMost likely, the format for your entry is off. Check the top of settings.ini for more info.\n\n{traceback.format_exc()}")
@@ -261,6 +265,61 @@ class Controller:
       for row in reader:
         Controller.vivid_watcher_alt_weights[row[0]] = int(row[1])
 
+  # Fetch wild brambleback beast price from poe.ninja API
+  def fetch_wild_brambleback_price():
+    try:
+      url = "https://poe.ninja/poe1/api/economy/stash/current/item/history?league=Keepers&type=Beast&id=101073"
+      if not Controller.DISABLE_OUT: print("Fetching Wild Brambleback beast price from poe.ninja...")
+      response = requests.get(url, timeout=10)
+      if response.status_code == 200:
+        data = response.json()
+        # API returns a list directly, not a dict with 'data' key
+        if isinstance(data, list) and len(data) > 0:
+          # Get the most recent price (first entry)
+          most_recent = data[0]
+          if 'value' in most_recent:
+            Controller.wild_brambleback_price = float(most_recent['value'])
+            if not Controller.DISABLE_OUT: print(f"Wild Brambleback price: {Controller.wild_brambleback_price:.2f}c")
+          else:
+            if not Controller.DISABLE_OUT: print("Could not find price value in response")
+            Controller.wild_brambleback_price = 0
+        else:
+          if not Controller.DISABLE_OUT: print("No data available for Wild Brambleback")
+          Controller.wild_brambleback_price = 0
+      else:
+        if not Controller.DISABLE_OUT: print(f"Error fetching Wild Brambleback price: {response.status_code}")
+        Controller.wild_brambleback_price = 0
+    except Exception as e:
+      if not Controller.DISABLE_OUT: print(f"Error fetching Wild Brambleback price: {e}")
+      Controller.wild_brambleback_price = 0
+
+  # Fetch gemcutter to chaos conversion rate from poe.ninja API
+  def fetch_gemcutter_price():
+    try:
+      url = "https://poe.ninja/poe1/api/economy/exchange/current/details?league=Keepers&type=Currency&id=gemcutters-prism"
+      if not Controller.DISABLE_OUT: print("Fetching Gemcutter Prism to Chaos rate from poe.ninja...")
+      response = requests.get(url, timeout=10)
+      if response.status_code == 200:
+        data = response.json()
+        if 'pairs' in data and len(data['pairs']) > 0:
+          # Find the chaos pair (first one should be chaos)
+          for pair in data['pairs']:
+            if pair.get('id') == 'chaos':
+              Controller.gemcutter_price = float(pair.get('rate', 0))
+              if not Controller.DISABLE_OUT: print(f"Gemcutter Prism price: {Controller.gemcutter_price:.4f}c")
+              return
+          # If chaos not found, use first pair as fallback
+          Controller.gemcutter_price = float(data['pairs'][0].get('rate', 0))
+          if not Controller.DISABLE_OUT: print(f"Gemcutter Prism price (fallback): {Controller.gemcutter_price:.4f}c")
+        else:
+          if not Controller.DISABLE_OUT: print("No data available for Gemcutter Prism")
+          Controller.gemcutter_price = 0
+      else:
+        if not Controller.DISABLE_OUT: print(f"Error fetching Gemcutter Prism price: {response.status_code}")
+        Controller.gemcutter_price = 0
+    except Exception as e:
+      if not Controller.DISABLE_OUT: print(f"Error fetching Gemcutter Prism price: {e}")
+      Controller.gemcutter_price = 0
 
 # Import currency prices from file
   def import_currency_prices():
@@ -383,6 +442,24 @@ class Controller:
           if corrupt_op.profit:
             Controller.all_corrupt_operations.append(corrupt_op)
 
+      # If applicable, generate wild brambleback operation for leveling awakened gems
+      if Controller.print_brambleback and WatcherOperation.is_valid_vw_by_name(gem_name):
+        brambleback_op = WildBramblebackOperation()
+        brambleback_op.gem_name = gem_name
+        
+        # Get level 1 and level 5 variants (awakened gems are 20 quality by default on poe.ninja)
+        lvl1_gems = Controller.get_gems(gem_name, _type=None, _lv=1, _qual=20, _isCorrupt=False)
+        lvl1_0q_gems = Controller.get_gems(gem_name, _type=None, _lv=1, _qual=0, _isCorrupt=False)
+        lvl5_gems = Controller.get_gems(gem_name, _type=None, _lv=5, _qual=20, _isCorrupt=False)
+        
+        if lvl1_gems and lvl5_gems:
+          brambleback_op.gem_lvl1 = lvl1_gems[0]
+          brambleback_op.gem_lvl1_0quality = lvl1_0q_gems[0] if lvl1_0q_gems else None
+          brambleback_op.gem_lvl5 = lvl5_gems[0]
+          brambleback_op.profit = brambleback_op.calculate_profit()
+          if brambleback_op.profit is not None:
+            Controller.all_brambleback_operations.append(brambleback_op)
+
     # Done!
     if not Controller.DISABLE_OUT: print("Done!\n")
 
@@ -417,6 +494,16 @@ class Controller:
     else:
       return profitable_watcher[:Controller.MAX_RESULTS]
 
+  # Sort through all wild brambleback operations and display them based on settings
+  def get_profitable_brambleback():
+    profitable_brambleback = [op for op in Controller.all_brambleback_operations if op.profit is not None and op.profit > 0]
+    profitable_brambleback.sort(key=lambda x: x.profit, reverse=not Controller.reverse_console_listings)
+    
+    if Controller.reverse_console_listings:
+      return profitable_brambleback[len(profitable_brambleback) - min(Controller.MAX_RESULTS, len(profitable_brambleback)):]
+    else:
+      return profitable_brambleback[:Controller.MAX_RESULTS]
+
   # Reset local variables
   def reset():
     Controller.lens_weights = {}
@@ -425,6 +512,7 @@ class Controller:
     Controller.all_font2_operations = []
     Controller.all_corrupt_operations = []
     Controller.all_watcher_operations = []
+    Controller.all_brambleback_operations = []
     Controller.results = []
     Controller.gems = []
     Controller.gems_dict = {}
@@ -655,6 +743,64 @@ class WatcherOperation:
     gems.sort(key=lambda x: x.chaos_value, reverse=False)
     return gems[0]
 
+# Holds data and methods for wild brambleback gem leveling operations
+class WildBramblebackOperation:
+  def __init__(self):
+    self.gem_name = None
+    self.gem_lvl1 = None  # Level 1 uncorrupted gem
+    self.gem_lvl1_0quality = None  # Level 1 quality 0 gem (for alternative cost calculation)
+    self.gem_lvl5 = None  # Level 5 uncorrupted gem
+    self.profit = None
+    self.lvl1_cost = 0  # Actual cost used (minimum of two options)
+    self.cost_method = "Buy 20Qual"  # "Buy 20Qual" or "GCP"
+
+  def __str__(self):
+    if self.profit is None:
+      return f"{self.gem_name}: No data available"
+    return f"{self.gem_name}: {self.profit:.2f}c profit (lvl 1: {self.lvl1_cost:.2f}c -> lvl 5: {self.gem_lvl5.chaos_value:.2f}c)"
+
+  def table_format(self):
+    if self.profit is None:
+      return [self.gem_name, "0.00", "0.00", "0.00", "0.00", "0", ""]
+    return [
+      self.gem_name,
+      f"{self.lvl1_cost:.2f}",
+      f"{self.gem_lvl5.chaos_value:.2f}",
+      f"{Controller.wild_brambleback_price * 4:.2f}",
+      f"{self.profit:.2f}",
+      str(self.gem_lvl1.count),
+      self.cost_method
+    ]
+
+  def calculate_profit(self):
+    """Calculate profit from leveling gem from 1 to 5 using 4 wild bramblebacks
+    Uses the minimum cost between:
+    1. Direct purchase of lvl1/20q gem
+    2. Purchase of lvl1/0q gem + 20 gemcutter prisms"""
+    if not self.gem_lvl1 or not self.gem_lvl5:
+      return None
+    
+    cost_of_beasts = Controller.wild_brambleback_price * 4  # 4 beasts needed to go from lvl 1 to 5
+    
+    # Option 1: Direct 20/20 gem purchase
+    direct_cost = self.gem_lvl1.chaos_value
+    
+    # Option 2: Buy 0/0 gem + 20 gemcutter prisms (if available)
+    if self.gem_lvl1_0quality and Controller.gemcutter_price > 0:
+      cutter_cost = self.gem_lvl1_0quality.chaos_value + (20 * Controller.gemcutter_price)
+      # Use the minimum of both options
+      if cutter_cost < direct_cost:
+        self.lvl1_cost = cutter_cost
+        self.cost_method = "GCP"
+      else:
+        self.lvl1_cost = direct_cost
+        self.cost_method = "Buy 20Qual"
+    else:
+      self.lvl1_cost = direct_cost
+      self.cost_method = "Buy 20Qual"
+    
+    return (self.gem_lvl5.chaos_value - self.lvl1_cost) - cost_of_beasts
+
 # Hold gem data (defines a gem with specific lv/qual/type)
 class Gem:
   def __init__(self):
@@ -705,7 +851,7 @@ class Gem:
 
 def getOutput():
   Controller.reset()
-  out = { 'font1': '', 'font2': '', 'corrupt': '', 'wokegem': '', 'table_font1': [], 'table_font2': [], 'table_corrupts': [], 'table_wokegem': [] }
+  out = { 'font1': '', 'font2': '', 'corrupt': '', 'wokegem': '', 'brambleback': '', 'table_font1': [], 'table_font2': [], 'table_corrupts': [], 'table_wokegem': [], 'table_brambleback': [] }
   if Controller.bypass_calc:
     return out
   Controller.fetch(Controller.ninja_json_filename, Controller.API_URL)
@@ -714,6 +860,11 @@ def getOutput():
     Controller.import_currency_prices()
   elif not Controller.DISABLE_OUT:
       print(f'Using manual currency prices:\nDivine: {Controller.DIV_PRICE}c\n')
+
+  # Fetch wild brambleback price if needed
+  if Controller.print_brambleback:
+    Controller.fetch_wild_brambleback_price()
+    Controller.fetch_gemcutter_price()
 
   # Need to load gem attributes before we can load gems
   Controller.import_gem_attr(Controller.gem_attr_file)
@@ -726,6 +877,7 @@ def getOutput():
   profitable_font2 = Controller.get_profitable_font2()
   profitable_vaal = Controller.get_profitable_vaal()
   profitable_watcher = Controller.get_profitable_watcher()
+  profitable_brambleback = Controller.get_profitable_brambleback()
 
   # Might add these disclaimers back in to the table format some day
   # vaal_disclaimer = "Please take these with a grain of salt. The data used for pricing can be low-confidence.\n\n"
@@ -756,6 +908,13 @@ def getOutput():
     for op in profitable_watcher:
       out['wokegem'] += f"{op}\n"
       out['table_wokegem'].append(op.table_format())
+
+  if Controller.print_brambleback:
+    out['brambleback'] += f"Showing {len(profitable_brambleback)} Wild Brambleback leveling operations.\n"
+    for op in profitable_brambleback:
+      out['brambleback'] += f"{op}\n"
+      out['table_brambleback'].append(op.table_format())
+
   return out
 
 def runTradesUi(window, app):
@@ -786,20 +945,28 @@ def runTradesUi(window, app):
     'columns': ['Profit', 'Gem Name', 'BaseValue'],
     'rows': []
   }
+  brambleback_table_data = {
+    'gemdata': out['table_brambleback'],
+    'columns': ['Gem Name', 'Lvl 1 Price', 'Lvl 5 Price', 'Beast Cost (4x)', 'Profit', 'Available Count', 'Cost Method'],
+    'rows': []
+  }
   font1_table_model = GemTableModel(font1_table_data)
   font2_table_model = GemTableModel(font2_table_data)
   corrupt_table_model = GemTableModel(corrupt_table_data)
   wokegem_table_model = GemTableModel(wokegem_table_data)
+  brambleback_table_model = GemTableModel(brambleback_table_data)
   window.ui.font1Table.setModel(font1_table_model)
   window.ui.font2Table.setModel(font2_table_model)
   window.ui.corruptTable.setModel(corrupt_table_model)
   window.ui.wokegemTable.setModel(wokegem_table_model)
+  window.ui.bramblebackTable.setModel(brambleback_table_model)
 
   # Set the width of column headings that need to be a bit longer
   corrupt_column_width = { 1:250 }
   wokegem_column_width = { 1:250 }
   font1_column_width   = { 2:120 }
   font2_column_width   = { 1:200 }
+  brambleback_column_width = { 0:200 }
 
   for k,v in corrupt_column_width.items():
     window.ui.corruptTable.setColumnWidth(k,v)
@@ -809,6 +976,8 @@ def runTradesUi(window, app):
     window.ui.font1Table.setColumnWidth(k, v)
   for k,v in font2_column_width.items():
     window.ui.font2Table.setColumnWidth(k, v)
+  for k,v in brambleback_column_width.items():
+    window.ui.bramblebackTable.setColumnWidth(k, v)
 
   # Done! Set status message
   window.statusBar().clearMessage()

@@ -101,6 +101,33 @@ class Ui_GemArbitrageGUI(object):
         except Exception:
             pass
         self.tradeTabs.addTab(self.corruptTab, "")
+        self.bramblebackTab = QtWidgets.QWidget()
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.bramblebackTab.sizePolicy().hasHeightForWidth())
+        self.bramblebackTab.setSizePolicy(sizePolicy)
+        self.bramblebackTab.setObjectName("bramblebackTab")
+        self.bramblebackTable = QtWidgets.QTableView(parent=self.bramblebackTab)
+        self.bramblebackTable.setGeometry(QtCore.QRect(10, 10, 1051, 621))
+        self.bramblebackTable.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
+        self.bramblebackTable.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
+        self.bramblebackTable.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+        self.bramblebackTable.setDragEnabled(True)
+        self.bramblebackTable.setAlternatingRowColors(True)
+        self.bramblebackTable.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.bramblebackTable.setHorizontalScrollMode(QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.bramblebackTable.setShowGrid(True)
+        self.bramblebackTable.setObjectName("bramblebackTable")
+        self.bramblebackTable.horizontalHeader().setDefaultSectionSize(64)
+        self.bramblebackTable.verticalHeader().setDefaultSectionSize(36)
+        # Make header resize to contents and avoid eliding so longer headers can wrap/show fully
+        self.bramblebackTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        try:
+            self.bramblebackTable.horizontalHeader().setTextElideMode(QtCore.Qt.TextElideMode.ElideNone)
+        except Exception:
+            pass
+        self.tradeTabs.addTab(self.bramblebackTab, "")
         self.font2Tab = QtWidgets.QWidget()
         self.font2Tab.setObjectName("font2Tab")
         self.font2Table = QtWidgets.QTableView(parent=self.font2Tab)
@@ -194,6 +221,7 @@ class Ui_GemArbitrageGUI(object):
         GemArbitrageGUI.setWindowTitle(_translate("GemArbitrageGUI", "POE Gem Arbitrage"))
         self.tradeTabs.setTabText(self.tradeTabs.indexOf(self.wokegemTab), _translate("GemArbitrageGUI", "Vivid Watcher"))
         self.tradeTabs.setTabText(self.tradeTabs.indexOf(self.corruptTab), _translate("GemArbitrageGUI", "Corrupts"))
+        self.tradeTabs.setTabText(self.tradeTabs.indexOf(self.bramblebackTab), _translate("GemArbitrageGUI", "Wild Brambleback"))
         self.tradeTabs.setTabText(self.tradeTabs.indexOf(self.font2Tab), _translate("GemArbitrageGUI", "Font - By Gem"))
         self.tradeTabs.setTabText(self.tradeTabs.indexOf(self.font1Tab), _translate("GemArbitrageGUI", "Font - By Color"))
         self.menuSettings.setTitle(_translate("GemArbitrageGUI", "Settings"))
